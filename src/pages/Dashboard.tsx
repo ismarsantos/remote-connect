@@ -1,395 +1,292 @@
 
-import { useState, useEffect } from 'react';
-import { Plus, Search, Filter, Clock, SortAsc, SortDesc, RefreshCw } from 'lucide-react';
-import { cn } from '@/lib/utils';
-import { Header } from '@/components/layout/Header';
-import { Footer } from '@/components/layout/Footer';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { useReveal, useStaggeredReveal } from '@/utils/animations';
-import { ConnectionCard, ConnectionProps } from '@/components/ui/ConnectionCard';
-import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
-import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
-import { Label } from '@/components/ui/label';
-import { toast } from 'sonner';
+import { useState } from 'react';
+import { Server, ServerOff, Power, RefreshCw, MoreVertical, Star } from 'lucide-react';
+import { 
+  Card, 
+  CardContent, 
+  CardDescription, 
+  CardFooter, 
+  CardHeader, 
+  CardTitle 
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { 
+  DropdownMenu, 
+  DropdownMenuContent, 
+  DropdownMenuItem, 
+  DropdownMenuSeparator, 
+  DropdownMenuTrigger 
+} from "@/components/ui/dropdown-menu";
+import { Input } from "@/components/ui/input";
+import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 
-// Sample connection data
-const sampleConnections: ConnectionProps[] = [
-  { 
-    id: '1', 
-    name: 'Work Desktop', 
-    host: 'work-desktop.local', 
-    port: '3389', 
-    lastConnected: '10 minutes ago',
-    isFavorite: true,
-    status: 'online',
-    type: 'windows'
-  },
-  { 
-    id: '2', 
-    name: 'Home Laptop', 
-    host: 'home-laptop.local', 
-    port: '3389', 
-    lastConnected: '2 hours ago',
-    isFavorite: false,
-    status: 'sleep',
-    type: 'mac'
-  },
-  { 
-    id: '3', 
-    name: 'Development Server', 
-    host: '192.168.1.105', 
-    port: '3390', 
-    lastConnected: '1 day ago',
-    isFavorite: true,
-    status: 'online',
-    type: 'linux'
-  },
-  { 
-    id: '4', 
-    name: 'Media Center', 
-    host: 'media-pc.local', 
-    port: '3389', 
-    lastConnected: '5 days ago',
-    isFavorite: false,
-    status: 'offline',
-    type: 'windows'
-  },
-  { 
-    id: '5', 
-    name: 'Guest Computer', 
-    host: '192.168.1.110', 
-    port: '3389', 
-    isFavorite: false,
-    status: 'offline',
-    type: 'custom'
-  },
-  { 
-    id: '6', 
-    name: 'Office Workstation', 
-    host: 'office-desktop.local', 
-    port: '3389', 
-    lastConnected: '3 days ago',
-    isFavorite: false,
-    status: 'offline',
-    type: 'windows'
-  },
-];
+// Types for our machine data
+interface Machine {
+  id: string;
+  name: string;
+  ipAddress: string;
+  status: 'available' | 'occupied' | 'unavailable';
+  isFavorite: boolean;
+  lastConnected?: string;
+}
 
-export default function Dashboard() {
-  const [connections, setConnections] = useState<ConnectionProps[]>([]);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [showNewConnectionDialog, setShowNewConnectionDialog] = useState(false);
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
-  const [activeFilter, setActiveFilter] = useState<'all' | 'online' | 'offline' | 'favorites'>('all');
-  
-  // Form state for new connection
-  const [newConnectionName, setNewConnectionName] = useState('');
-  const [newConnectionHost, setNewConnectionHost] = useState('');
-  const [newConnectionPort, setNewConnectionPort] = useState('3389');
-  const [newConnectionType, setNewConnectionType] = useState('windows');
-  
-  const containerReveal = useReveal();
-  const { containerRef, visibleItems } = useStaggeredReveal(sampleConnections.length);
-  
-  // Initialize connections
-  useEffect(() => {
-    setConnections(sampleConnections);
-  }, []);
-  
-  // Filter connections based on search query and active filter
-  const filteredConnections = connections.filter(connection => {
-    const matchesSearch = 
-      connection.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      connection.host.toLowerCase().includes(searchQuery.toLowerCase());
-      
-    if (!matchesSearch) return false;
-    
-    switch (activeFilter) {
-      case 'online':
-        return connection.status === 'online';
-      case 'offline':
-        return connection.status === 'offline';
-      case 'favorites':
-        return connection.isFavorite;
-      default:
-        return true;
+const Dashboard = () => {
+  // Sample data for remote machines
+  const [machines, setMachines] = useState<Machine[]>([
+    {
+      id: "1",
+      name: "Development Server",
+      ipAddress: "192.168.1.101",
+      status: "available",
+      isFavorite: true,
+      lastConnected: "10 minutes ago"
+    },
+    {
+      id: "2",
+      name: "Production Server",
+      ipAddress: "192.168.1.102",
+      status: "occupied", 
+      isFavorite: false,
+      lastConnected: "2 hours ago"
+    },
+    {
+      id: "3",
+      name: "Test Environment",
+      ipAddress: "192.168.1.103",
+      status: "unavailable",
+      isFavorite: false
+    },
+    {
+      id: "4",
+      name: "Marketing Workstation",
+      ipAddress: "192.168.1.104",
+      status: "available",
+      isFavorite: false,
+      lastConnected: "1 day ago"
     }
-  });
+  ]);
   
-  // Sort connections
-  const sortedConnections = [...filteredConnections].sort((a, b) => {
-    if (sortOrder === 'asc') {
-      return a.name.localeCompare(b.name);
-    } else {
-      return b.name.localeCompare(a.name);
-    }
-  });
+  const [searchQuery, setSearchQuery] = useState("");
   
-  // Handle refresh connections
-  const handleRefresh = () => {
-    setIsRefreshing(true);
+  // Filter machines based on search
+  const filteredMachines = machines.filter(machine => 
+    machine.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    machine.ipAddress.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+  
+  // Toggle favorite status
+  const toggleFavorite = (id: string) => {
+    setMachines(machines.map(machine => 
+      machine.id === id 
+        ? { ...machine, isFavorite: !machine.isFavorite } 
+        : machine
+    ));
     
-    // Simulate refreshing connection statuses
-    setTimeout(() => {
-      setIsRefreshing(false);
-      toast.success('Connection statuses refreshed');
-    }, 1500);
+    const machine = machines.find(m => m.id === id);
+    if (machine) {
+      toast.success(`${machine.name} ${machine.isFavorite ? 'removed from' : 'added to'} favorites`);
+    }
   };
   
-  // Handle new connection submission
-  const handleNewConnection = (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!newConnectionName || !newConnectionHost) {
-      toast.error('Name and host are required');
+  // Machine actions
+  const handleConnect = (machine: Machine) => {
+    if (machine.status === "unavailable") {
+      toast.error(`Cannot connect to ${machine.name}: Machine is unavailable`);
       return;
     }
     
-    const newConnection: ConnectionProps = {
-      id: `new-${Date.now()}`,
-      name: newConnectionName,
-      host: newConnectionHost,
-      port: newConnectionPort,
-      status: 'offline',
-      isFavorite: false,
-      type: newConnectionType as 'windows' | 'mac' | 'linux' | 'custom',
-    };
+    if (machine.status === "occupied") {
+      toast.warning(`${machine.name} is currently occupied by another user`);
+      return;
+    }
     
-    setConnections([newConnection, ...connections]);
-    setShowNewConnectionDialog(false);
-    
-    // Reset form
-    setNewConnectionName('');
-    setNewConnectionHost('');
-    setNewConnectionPort('3389');
-    setNewConnectionType('windows');
-    
-    toast.success('New connection added successfully');
+    toast.success(`Connecting to ${machine.name}...`);
+    // Here you would add logic to initiate the connection
   };
   
-  // Toggle sort order
-  const toggleSortOrder = () => {
-    setSortOrder(current => current === 'asc' ? 'desc' : 'asc');
+  const handleShutdown = (machine: Machine) => {
+    toast.info(`Shutting down ${machine.name}...`);
+    // Here you would add logic to shut down the machine
+    
+    // Update the machine status after a short delay to simulate the shutdown
+    setTimeout(() => {
+      setMachines(machines.map(m => 
+        m.id === machine.id 
+          ? { ...m, status: "unavailable" } 
+          : m
+      ));
+      toast.success(`${machine.name} has been shut down`);
+    }, 2000);
+  };
+  
+  const handleRestart = (machine: Machine) => {
+    toast.info(`Restarting ${machine.name}...`);
+    // Here you would add logic to restart the machine
+    
+    // Update the machine status after a short delay to simulate restart
+    setTimeout(() => {
+      setMachines(machines.map(m => 
+        m.id === machine.id 
+          ? { ...m, status: "available" } 
+          : m
+      ));
+      toast.success(`${machine.name} has been restarted`);
+    }, 3000);
+  };
+  
+  // Get appropriate icon and color based on machine status
+  const getStatusDetails = (status: Machine['status']) => {
+    switch (status) {
+      case 'available':
+        return { 
+          icon: <Server className="h-6 w-6 text-green-500" />,
+          color: 'bg-green-500',
+          text: 'Available'
+        };
+      case 'occupied':
+        return { 
+          icon: <Server className="h-6 w-6 text-orange-500" />,
+          color: 'bg-orange-500',
+          text: 'Occupied'
+        };
+      case 'unavailable':
+        return { 
+          icon: <ServerOff className="h-6 w-6 text-gray-500" />,
+          color: 'bg-gray-500',
+          text: 'Unavailable'
+        };
+      default:
+        return { 
+          icon: <Server className="h-6 w-6" />,
+          color: 'bg-gray-300',
+          text: 'Unknown'
+        };
+    }
   };
   
   return (
-    <div className="min-h-screen flex flex-col">
-      <Header />
-      
-      <main className="flex-1 pt-24 pb-16">
-        <div 
-          className="container mx-auto px-4"
-          ref={containerReveal.ref}
-        >
-          <div 
-            className={cn(
-              'mb-8 transition-all duration-700',
-              !containerReveal.isRevealed && 'opacity-0 translate-y-8',
-              containerReveal.isRevealed && 'opacity-100 translate-y-0'
-            )}
-          >
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
-              <div>
-                <h1 className="text-4xl font-bold tracking-tight">Dashboard</h1>
-                <p className="text-gray-600 mt-1">
-                  Manage and access your remote connections
-                </p>
-              </div>
-              
-              <div className="flex space-x-2">
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  className="rounded-lg"
-                  onClick={handleRefresh}
-                  disabled={isRefreshing}
-                >
-                  <RefreshCw className={cn('h-4 w-4 mr-2', isRefreshing && 'animate-spin')} />
-                  {isRefreshing ? 'Refreshing...' : 'Refresh'}
-                </Button>
-                
-                <Dialog open={showNewConnectionDialog} onOpenChange={setShowNewConnectionDialog}>
-                  <DialogTrigger asChild>
-                    <Button size="sm" className="rounded-lg">
-                      <Plus className="h-4 w-4 mr-2" />
-                      New Connection
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent className="sm:max-w-[425px]">
-                    <DialogHeader>
-                      <DialogTitle>Add New Connection</DialogTitle>
-                      <DialogDescription>
-                        Enter the details of the remote computer you want to connect to.
-                      </DialogDescription>
-                    </DialogHeader>
-                    
-                    <form onSubmit={handleNewConnection} className="space-y-4 py-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="connection-name">Name</Label>
-                        <Input
-                          id="connection-name"
-                          placeholder="My Work Computer"
-                          value={newConnectionName}
-                          onChange={(e) => setNewConnectionName(e.target.value)}
-                          className="rounded-lg"
-                        />
-                      </div>
-                      
-                      <div className="grid grid-cols-4 gap-3">
-                        <div className="col-span-3 space-y-2">
-                          <Label htmlFor="connection-host">Host</Label>
-                          <Input
-                            id="connection-host"
-                            placeholder="hostname or IP address"
-                            value={newConnectionHost}
-                            onChange={(e) => setNewConnectionHost(e.target.value)}
-                            className="rounded-lg"
-                          />
-                        </div>
-                        
-                        <div className="space-y-2">
-                          <Label htmlFor="connection-port">Port</Label>
-                          <Input
-                            id="connection-port"
-                            placeholder="3389"
-                            value={newConnectionPort}
-                            onChange={(e) => setNewConnectionPort(e.target.value)}
-                            className="rounded-lg"
-                          />
-                        </div>
-                      </div>
-                      
-                      <div className="space-y-2">
-                        <Label htmlFor="connection-type">Computer Type</Label>
-                        <Select 
-                          value={newConnectionType} 
-                          onValueChange={setNewConnectionType}
-                        >
-                          <SelectTrigger id="connection-type" className="rounded-lg">
-                            <SelectValue placeholder="Select computer type" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="windows">Windows</SelectItem>
-                            <SelectItem value="mac">Mac</SelectItem>
-                            <SelectItem value="linux">Linux</SelectItem>
-                            <SelectItem value="custom">Custom</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      
-                      <DialogFooter className="pt-4">
-                        <Button type="submit">Add Connection</Button>
-                      </DialogFooter>
-                    </form>
-                  </DialogContent>
-                </Dialog>
-              </div>
-            </div>
-            
-            <div className="flex flex-col md:flex-row gap-4 items-start md:items-center">
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                <Input
-                  placeholder="Search connections..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10 rounded-lg"
-                />
-              </div>
-              
-              <div className="flex space-x-2">
-                <Tabs value={activeFilter} onValueChange={(value) => setActiveFilter(value as any)}>
-                  <TabsList className="grid grid-cols-4 h-9">
-                    <TabsTrigger value="all" className="text-xs rounded-lg">All</TabsTrigger>
-                    <TabsTrigger value="online" className="text-xs rounded-lg">Online</TabsTrigger>
-                    <TabsTrigger value="offline" className="text-xs rounded-lg">Offline</TabsTrigger>
-                    <TabsTrigger value="favorites" className="text-xs rounded-lg">Favorites</TabsTrigger>
-                  </TabsList>
-                </Tabs>
-                
-                <Button 
-                  variant="outline" 
-                  size="icon" 
-                  className="h-9 w-9 rounded-lg"
-                  onClick={toggleSortOrder}
-                >
-                  {sortOrder === 'asc' ? (
-                    <SortAsc className="h-4 w-4" />
-                  ) : (
-                    <SortDesc className="h-4 w-4" />
-                  )}
-                </Button>
-              </div>
-            </div>
-          </div>
-          
-          <div
-            ref={containerRef}
-            className={cn(
-              'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 transition-all duration-700 delay-300',
-              !containerReveal.isRevealed && 'opacity-0 translate-y-8',
-              containerReveal.isRevealed && 'opacity-100 translate-y-0'
-            )}
-          >
-            {sortedConnections.length > 0 ? (
-              sortedConnections.map((connection, index) => (
-                <div
-                  key={connection.id}
-                  className={cn(
-                    'transition-all duration-500',
-                    !visibleItems[index] && 'opacity-0 translate-y-8',
-                    visibleItems[index] && 'opacity-100 translate-y-0'
-                  )}
-                  style={{ transitionDelay: `${index * 100}ms` }}
-                >
-                  <ConnectionCard {...connection} />
-                </div>
-              ))
-            ) : (
-              <div className="col-span-full py-16 text-center">
-                <p className="text-gray-500 mb-2">No connections found</p>
-                <p className="text-gray-400 text-sm">
-                  {searchQuery ? 'Try adjusting your search or filters' : 'Add a new connection to get started'}
-                </p>
-                
-                {!searchQuery && (
-                  <Button 
-                    className="mt-4 rounded-lg" 
-                    onClick={() => setShowNewConnectionDialog(true)}
-                  >
-                    <Plus className="h-4 w-4 mr-2" />
-                    Add Connection
-                  </Button>
-                )}
-              </div>
-            )}
-          </div>
-          
-          {connections.length > 0 && (
-            <div 
-              className={cn(
-                'mt-8 flex justify-between items-center text-sm text-gray-500 transition-all duration-700 delay-500',
-                !containerReveal.isRevealed && 'opacity-0',
-                containerReveal.isRevealed && 'opacity-100'
-              )}
-            >
-              <div>
-                Showing {sortedConnections.length} of {connections.length} connections
-              </div>
-              
-              <div className="flex items-center">
-                <Clock className="h-4 w-4 mr-1" />
-                <span>Last updated just now</span>
-              </div>
-            </div>
-          )}
+    <div className="container mx-auto px-4 py-8">
+      <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-8">
+        <div>
+          <h1 className="text-3xl font-bold">Remote Machines</h1>
+          <p className="text-muted-foreground mt-1">
+            Connect and manage your remote machines
+          </p>
         </div>
-      </main>
+        <div className="mt-4 md:mt-0 w-full md:w-auto">
+          <div className="relative w-full md:w-80">
+            <Input
+              type="text"
+              placeholder="Search machines..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pr-10"
+            />
+          </div>
+        </div>
+      </div>
       
-      <Footer />
+      {filteredMachines.length === 0 ? (
+        <div className="text-center py-12">
+          <ServerOff className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
+          <h3 className="text-lg font-medium">No machines found</h3>
+          <p className="text-muted-foreground">
+            Try adjusting your search or add new machines.
+          </p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {filteredMachines.map((machine) => {
+            const { icon, color, text } = getStatusDetails(machine.status);
+            
+            return (
+              <Card key={machine.id} className="transition-all duration-300 hover:shadow-md">
+                <CardHeader className="pb-3">
+                  <div className="flex justify-between items-start">
+                    <div className="flex items-center gap-3">
+                      {icon}
+                      <div>
+                        <CardTitle>{machine.name}</CardTitle>
+                        <CardDescription>{machine.ipAddress}</CardDescription>
+                      </div>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => toggleFavorite(machine.id)}
+                      className={cn(
+                        "rounded-full",
+                        machine.isFavorite ? "text-yellow-500" : "text-muted-foreground"
+                      )}
+                    >
+                      <Star
+                        className="h-5 w-5"
+                        fill={machine.isFavorite ? "currentColor" : "none"}
+                      />
+                    </Button>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-center gap-2 mb-4">
+                    <div className={`h-2.5 w-2.5 rounded-full ${color}`}></div>
+                    <span className="text-sm">{text}</span>
+                  </div>
+                  
+                  {machine.lastConnected && (
+                    <p className="text-sm text-muted-foreground">
+                      Last connected: {machine.lastConnected}
+                    </p>
+                  )}
+                </CardContent>
+                <CardFooter className="flex justify-between">
+                  <Button
+                    variant={machine.status === "available" ? "default" : "outline"}
+                    onClick={() => handleConnect(machine)}
+                    disabled={machine.status === "unavailable"}
+                  >
+                    Connect
+                  </Button>
+                  
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" size="icon">
+                        <MoreVertical className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem
+                        onClick={() => handleShutdown(machine)}
+                        disabled={machine.status === "unavailable"}
+                      >
+                        <Power className="mr-2 h-4 w-4" />
+                        <span>Shutdown</span>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={() => handleRestart(machine)}
+                        disabled={machine.status === "unavailable"}
+                      >
+                        <RefreshCw className="mr-2 h-4 w-4" />
+                        <span>Restart</span>
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem
+                        onClick={() => {
+                          toast.info(`Opening settings for ${machine.name}`);
+                        }}
+                      >
+                        <span>Settings</span>
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </CardFooter>
+              </Card>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
-}
+};
+
+export default Dashboard;
